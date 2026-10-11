@@ -1,27 +1,27 @@
 from setuptools import find_packages,setup
 from typing import List
 
-HYPHON_E_DOT = '-e .'
-def get_requirments(file_path:str)->List[str]:
+HYPEN_E_DOT='-e .'
+def get_requirements(file_path:str)->List[str]:
     '''
-    This function will return the list of requirments
+    this function will return the list of requirements
     '''
-    # requirments = []
+    requirements=[]
     with open(file_path) as file_obj:
-        requirments = file_obj.readlines()
-        requirments = [req.replace("\n", " ") for req in requirments]
+        requirements=file_obj.readlines()
+        requirements=[req.replace("\n","") for req in requirements]
 
-        if HYPHON_E_DOT in requirments:
-            requirments.remove(HYPHON_E_DOT)
-
-    return requirments
-
+        if HYPEN_E_DOT in requirements:
+            requirements.remove(HYPEN_E_DOT)
+    
+    return requirements
 
 setup(
-    name = 'Predictive Maintenance',
-    version = '0.0.1,',
-    author = 'Nima',
-    author_email = 'n.asadifard1990@gmail.com',
-    packages = find_packages(),
-    install_requires = get_requirments('requirments.txt')
+name='mlproject',
+version='0.0.1',
+author='Krish',
+author_email='krishnaik06@gmail.com',
+packages=find_packages(),
+install_requires=get_requirements('requirements.txt')
+
 )
