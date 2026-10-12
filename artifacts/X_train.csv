@@ -1,4 +1,4 @@
-footfall,tempMode,AQ,USS,CS,VOC,RP,IP,Temperature,fail
+footfall,TempMode,AirQuality,UltrSensData,CurSensRead,VolatileOrgComp,RPM,InptPressure,OptTemp,Failure
 9,6,2,2,6,0,33,5,20,0
 29,2,6,2,5,6,49,6,23,1
 100,7,5,6,4,1,77,4,1,0
