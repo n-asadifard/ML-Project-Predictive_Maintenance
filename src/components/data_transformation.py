@@ -3,11 +3,12 @@ from dataclasses import dataclass
 import os
 import numpy as np 
 import pandas as pd
+# from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 
 from src.exception import CustomException
 from src.logger import logging
-from src.utils import SensorFeatureEngineering, save_object
+from src.utils import save_object, build_pipeline
 
 @dataclass
 class DataTransformationConfig:
@@ -19,12 +20,10 @@ class DataTransformation:
 
     def get_data_transformer_object(self):
         '''
-        Responsible for general feature engineering before model selection.
+        Responsible for handling missing values and feature engineering natively via pipeline.
         '''
         try:            
-            preprocessor = Pipeline(steps=[
-                ("feature_engineering", SensorFeatureEngineering())
-            ])
+            preprocessor = build_pipeline()
             return preprocessor
         except Exception as e:
             raise CustomException(e, sys)
@@ -43,7 +42,7 @@ class DataTransformation:
             input_test = X_test.drop('Failure', axis=1)
             target_test = X_test['Failure']
             
-            logging.info("Applying preprocessing object on training and testing dataframes.")
+            logging.info("Applying preprocessing and feature engineering on training and testing sets.")
             input_feature_train_arr = preprocessing_obj.fit_transform(input_train)
             input_feature_test_arr = preprocessing_obj.transform(input_test)
             

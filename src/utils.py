@@ -3,7 +3,7 @@ import sys
 import pandas as pd
 import numpy as np
 import pickle
-from sklearn.utils.validation import check_array
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
@@ -18,34 +18,56 @@ from catboost import CatBoostClassifier
 
 
 
-# def build_pipeline(model=None, scale=False):
-#     """
-#     Builds a pipeline containing feature engineering, 
-#     an optional conditional scaler, and an optional classifier model.
-#     """
-#     steps = [("feature_engineering", SensorFeatureEngineering())]
+def build_pipeline(model=None, scale=False):
+    """
+    Builds a pipeline containing feature engineering, 
+    an optional conditional scaler, and an optional classifier model.
+    """
+    steps = [("imputer", SimpleImputer(strategy="most_frequent")),
+             ("feature_engineering", SensorFeatureEngineering())]
     
-#     if scale:
-#         steps.append(("scaler", StandardScaler()))
+    if scale:
+        steps.append(("scaler", StandardScaler()))
         
-#     if model is not None:
-#         steps.append(("classifier", model))
+    if model is not None:
+        steps.append(("classifier", model))
         
-#     return Pipeline(steps)
+    return Pipeline(steps)
 
 
 
 class SensorFeatureEngineering(BaseEstimator, TransformerMixin):
-    """Adds domain-informed interaction features to the raw sensor readings."""
+    """Adds domain-informed interaction features to the sensor readings."""
     def __init__(self, eps=1e-5):
         self.eps = eps
 
     def fit(self, X, y=None):
-        X = check_array(X)
+        # self.is_fitted_ = True
+        self.n_features_in_ = X.shape[1]  # every estimator stores this in fit()
         return self
 
     def transform(self, X):        
-        X = X.copy()        
+        if not isinstance(X, pd.DataFrame):
+            # Dynamically match column names based on whether features are already engineered (12 cols) or raw (9 cols)
+            if X.shape[1] == 12:
+                col_names = [
+                    "footfall", "TempMode", "AirQuality", "UltrSensData", 
+                    "CurSensRead", "VolatileOrgComp", "RPM", "InptPressure", "OptTemp",
+                    "Environmental_Stress", "VOC-to-USS", "log_footfall"
+                ]
+            else:
+                col_names = [
+                    "footfall", "TempMode", "AirQuality", "UltrSensData", 
+                    "CurSensRead", "VolatileOrgComp", "RPM", "InptPressure", "OptTemp"
+                ][:X.shape[1]]
+            X = pd.DataFrame(X, columns=col_names)
+        else:
+            X = X.copy()        
+        
+        # IDEMPOTENCY CHECK: If features already exist, pass through safely without recalculating
+        if "Environmental_Stress" in X.columns:
+            return X
+
         X["Environmental_Stress"] = X["VolatileOrgComp"] * X["AirQuality"]
         X["VOC-to-USS"] = X["VolatileOrgComp"] / (X["UltrSensData"] + self.eps)
         X["log_footfall"] = np.log1p(X["footfall"])
@@ -53,9 +75,7 @@ class SensorFeatureEngineering(BaseEstimator, TransformerMixin):
 
     def get_feature_names_out(self, input_features=None):
         base = list(input_features) if input_features is not None else []
-        return np.array(base + ["Environmental_Stress",
-                                 "VOC-to-USS", "log_footfall"])
-
+        return np.array(base + ["Environmental_Stress", "VOC-to-USS", "log_footfall"])
     
 
 
@@ -117,16 +137,16 @@ def get_parameter_distributions():
     }    
 
 
-def evaluate_candidates(candidates, fitted_pipelines, X_train, y_train, cv_splits, scoring):
+def evaluate_candidates(models, pipelines, input_train, traget_train, cross_val_splits, scoring_list):
     """Trains and cross-validates all candidates, returning a sorted performance DataFrame."""
     try:
         comparison_rows = []
-        for name, (model, scale) in candidates.items():
+        for name, (model, scale) in models.items():
             pipe = build_pipeline(model, scale)  # Assumes build_pipeline is defined globally or imported
-            fitted_pipelines[name] = pipe
-            cv_results = cross_validate(pipe, X_train, y_train, cv=cv_splits, scoring=scoring, n_jobs=-1)
+            pipelines[name] = pipe
+            cv_results = cross_validate(pipe, input_train, traget_train, cv=cross_val_splits, scoring=scoring_list, n_jobs=-1)
             row = {"Model": name}
-            row.update({metric: cv_results[f"test_{metric}"].mean() for metric in scoring})
+            row.update({metric: cv_results[f"test_{metric}"].mean() for metric in scoring_list})
             comparison_rows.append(row)            
         results_df = pd.DataFrame(comparison_rows).sort_values("average_precision", ascending=False)
         return results_df
@@ -148,7 +168,7 @@ def tune_top_models(top_models, fitted_pipelines, param_distributions, X_train, 
                 n_iter=20,
                 scoring="average_precision",
                 cv=cv_splits,
-                random_state=42,
+                random_state=None,
                 n_jobs=-1,
             )
             search.fit(X_train, y_train)

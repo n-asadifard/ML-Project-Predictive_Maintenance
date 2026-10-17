@@ -6,11 +6,17 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from dataclasses import dataclass
 
-from src.components.data_transformation import DataTransformation
-from src.components.data_transformation import DataTransformationConfig
+# from src.components.data_transformation import DataTransformation
+# from src.components.data_transformation import DataTransformationConfig
 
-from src.components.model_trainer import ModelTrainerConfig
-from src.components.model_trainer import ModelTrainer
+# from src.components.model_trainer import ModelTrainerConfig
+# from src.components.model_trainer import ModelTrainer
+from src.components.data_transformation_new import DataTransformation
+from src.components.data_transformation_new import DataTransformationConfig
+
+from src.components.model_trainer_new import ModelTrainerConfig
+from src.components.model_trainer_new import ModelTrainer
+
 
 @dataclass
 class DataIngestionConfig:
@@ -25,7 +31,7 @@ class DataIngestion:
     def initiate_data_ingestion(self):
         logging.info('Data ingestion has proceeded')
         try:
-            sensor_data = pd.read_csv('notebook\dataset\data.csv')
+            sensor_data = pd.read_csv('notebook/dataset/data.csv')
             logging.info('Data has been read into sensor_data')
 
             os.makedirs(os.path.dirname(self.ingestion_config.train_data_path), exist_ok=True)

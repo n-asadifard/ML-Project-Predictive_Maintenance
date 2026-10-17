@@ -2,15 +2,11 @@ import os
 import sys
 import numpy as np
 from dataclasses import dataclass
+
 from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.metrics import (
-    accuracy_score,
-    precision_score,
-    recall_score,
-    f1_score,
-    roc_auc_score,
-    average_precision_score,
-    precision_recall_curve
+    accuracy_score, precision_score, recall_score, 
+    f1_score, roc_auc_score, average_precision_score, precision_recall_curve
 )
 
 from src.exception import CustomException
@@ -44,38 +40,34 @@ class ModelTrainer:
             candidates = get_candidates(class_ratio)
             fitted_pipelines = {}
 
-            # 1. Evaluate all candidates via cross-validation
+            # 1. Evaluate candidates (idempotency handles any redundant transformer calls safely)
             logging.info("Starting training and cross-validation loop for all candidates")
             results_df = evaluate_candidates(candidates, fitted_pipelines, X_train, y_train, cv_splits, scoring)
             
-            # 2. Dynamically extract the top 2 performing models
+            # 2. Extract top 2 models and tune hyperparameters
             top_2_models = results_df["Model"].head(2).tolist()
             logging.info(f"Top 2 models selected for tuning: {top_2_models}")
 
-            # 3. Retrieve parameter distributions and perform hyperparameter search
             param_distributions = get_parameter_distributions()
             final_pipeline = tune_top_models(top_2_models, fitted_pipelines, param_distributions, X_train, y_train, cv_splits)
 
-            # 4. Out-of-fold threshold optimization for imbalanced classification
+            # 3. Optimize decision threshold using Out-Of-Fold predictions
             logging.info("Optimizing decision threshold using OOF predictions")
             oof_proba = cross_val_predict(final_pipeline, X_train, y_train, cv=3, method="predict_proba", n_jobs=-1)[:, 1]
             oof_precisions, oof_recalls, oof_thresholds = precision_recall_curve(y_train, oof_proba)
             oof_f1_scores = 2 * oof_precisions * oof_recalls / (oof_precisions + oof_recalls + 1e-12)
             best_idx = np.nanargmax(oof_f1_scores[:-1])
             best_threshold = oof_thresholds[best_idx]
-            logging.info(f"Optimized Decision Threshold: {best_threshold:.4f}")
 
-            # 5. Final fit on full training data
+            # 4. Final fit on training data and save model artifact
             final_pipeline.fit(X_train, y_train)
-
-            # 6. Save the trained pipeline to artifacts
-            logging.info(f"Saving best model pipeline to {self.model_trainer_config.trained_model_file_path}")
+            logging.info(f"Saving final model pipeline to {self.model_trainer_config.trained_model_file_path}")
             save_object(
                 file_path=self.model_trainer_config.trained_model_file_path,
                 obj=final_pipeline
             )
 
-            # 7. Evaluate on Test Data using robust classification metrics
+            # 5. Evaluate on test data using robust classification metrics
             y_test_proba = final_pipeline.predict_proba(X_test)[:, 1]
             y_test_pred = (y_test_proba >= best_threshold).astype(int)
 
