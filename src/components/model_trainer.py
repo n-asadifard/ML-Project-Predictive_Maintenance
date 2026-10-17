@@ -49,7 +49,7 @@ class ModelTrainer:
             logging.info(f"Top 2 models selected for tuning: {top_2_models}")
 
             param_distributions = get_parameter_distributions()
-            final_pipeline = tune_top_models(top_2_models, fitted_pipelines, param_distributions, X_train, y_train, cv_splits)
+            final_pipeline, model_name = tune_top_models(top_2_models, fitted_pipelines, param_distributions, X_train, y_train, cv_splits)
 
             # 3. Optimize decision threshold using Out-Of-Fold predictions
             logging.info("Optimizing decision threshold using OOF predictions")
@@ -72,6 +72,7 @@ class ModelTrainer:
             y_test_pred = (y_test_proba >= best_threshold).astype(int)
 
             test_metrics = {
+                "model": model_name, 
                 "accuracy": accuracy_score(y_test, y_test_pred),
                 "precision": precision_score(y_test, y_test_pred, zero_division=0),
                 "recall": recall_score(y_test, y_test_pred, zero_division=0),

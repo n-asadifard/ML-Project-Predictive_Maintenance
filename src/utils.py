@@ -180,7 +180,7 @@ def tune_top_models(top_models, fitted_pipelines, param_distributions, X_train, 
             })
         tuning_df = pd.DataFrame(tuning_rows).sort_values("Best CV average precision", ascending=False)
         best_model_name = tuning_df.iloc[0]["Model"]
-        return tuned_estimators[best_model_name]
+        return (tuned_estimators[best_model_name], best_model_name)
 
     except Exception as e:
         raise CustomException(e, sys)
